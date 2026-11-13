@@ -633,6 +633,18 @@
     #powerTowerSource a {color:#276590;}
     #powerTowerSource[hidden] {display:none !important;}
     #map .power-tower-canvas {position:absolute;pointer-events:none !important;}
+    /* v84: 狭い操作パネルでも「植生図（エコリス）」と透過率を一行に保つ。 */
+    #vegetationToggleRow { gap:3px; }
+    #vegetationToggleRow .terrain-label { font-size:10px; letter-spacing:-.03em; }
+    #vegetationToggleRow .vegetation-opacity-row { gap:3px; }
+    #vegetationToggleRow .vegetation-opacity-row label { font-size:9px; }
+    #vegetationToggleRow .vegetation-opacity-row input[type="range"] {
+      flex:1 1 30px; width:40px; min-width:28px; max-width:60px;
+    }
+    #vegetationToggleRow .vegetation-opacity-row output { min-width:24px; font-size:9px; }
+    #vegetationSource { font-size:9px; line-height:1.4; margin:2px 0 5px; color:#52675d; overflow-wrap:anywhere; }
+    #vegetationSource a { color:#276590; }
+    #vegetationSource[hidden] { display:none !important; }
   </style>
 </head>
 <body>
@@ -666,7 +678,7 @@
         </label>
       </div>
       <div class="terrain-toggle-row" id="vegetationToggleRow">
-        <span class="terrain-label" id="vegetationSwitchLabel">植生図</span>
+        <span class="terrain-label" id="vegetationSwitchLabel">植生図（エコリス）</span>
         <div class="vegetation-opacity-row">
           <label for="vegetationOpacity">透過率</label>
           <input id="vegetationOpacity" type="range" min="0" max="100" value="15" step="1" aria-label="植生図の透過率">
@@ -677,6 +689,7 @@
           <span class="terrain-slider" aria-hidden="true"></span>
         </label>
       </div>
+      <div id="vegetationSource" hidden>出典：<a href="https://map.ecoris.info/" target="_blank" rel="noopener noreferrer">エコリス地図タイル</a>（環境省生物多様性センター「第6～7回植生図」を使用し、株式会社エコリスが作成・加工）</div>
 
       <div class="terrain-toggle-row" id="powerTowersToggleRow">
         <span class="terrain-label" id="powerTowersSwitchLabel">鉄塔（OSM）</span>
@@ -727,6 +740,17 @@
               <option value="raw-lonlat">元データが経度・緯度（PRJ不一致用）</option>
             </select>
             <div class="small">位置がずれる場合は座標順を切替えて再インポート。座標値が原点付近の図面は、座標順だけでは位置を復元できません。</div>
+          </div>
+          <div class="overlay-axis-config" id="overlayGeojsonCrsConfig">
+            <label for="overlayGeojsonCrs">GeoJSONの座標系</label>
+            <select id="overlayGeojsonCrs" aria-label="GeoJSONの元座標系を指定">
+              <option value="auto">自動（ファイルのCRS情報を優先）</option>
+              <option value="wgs84">経度・緯度（EPSG:4326）</option>
+              <option value="6675-auto">EPSG:6675（第VII系・座標順を自動判定）</option>
+              <option value="6675-en">EPSG:6675（東・北／GIS形式）</option>
+              <option value="6675-ne">EPSG:6675（北・東／日本の測量XY）</option>
+            </select>
+            <div class="small">GeoJSONは通常、経度・緯度を使用します。平面直角第VII系で作ったファイルはEPSG:6675を選んで読み込んでください。元ファイルは書き換えません。</div>
           </div>
           <input id="overlayFileInput" type="file" multiple accept=".geojson,.json,.tif,.tiff,.shp,.shx,.dbf,.prj,.cpg,.zip,.gpx,.kml,.kmz,.dxf,.dwg,application/geo+json,application/json,image/tiff" hidden>
           <label for="overlayUrlType">リンクの種類</label>
@@ -1176,6 +1200,7 @@ const vegetationSwitch = document.getElementById("vegetationSwitch");
 const vegetationOpacity = document.getElementById("vegetationOpacity");
 const vegetationOpacityValue = document.getElementById("vegetationOpacityValue");
 const vegetationCredit3D = document.getElementById("terrainVegetationCredits");
+const vegetationSource = document.getElementById("vegetationSource");
 try {
   const saved = Number(localStorage.getItem(VEGETATION_ALPHA_PREF_KEY));
   if (localStorage.getItem(VEGETATION_ALPHA_PREF_KEY) !== null && Number.isFinite(saved))
@@ -1191,12 +1216,14 @@ const vegetation2D = L.tileLayer(VEGETATION_TILE_URL, {
   opacity:vegetationLayerOpacity(), attribution:VEGETATION_ATTRIBUTION
 });
 try { vegetationSwitch.checked = localStorage.getItem(VEGETATION_PREF_KEY) === "true"; } catch(_) {}
+if (vegetationSource) vegetationSource.hidden = !vegetationSwitch.checked;
 if (vegetationSwitch.checked) vegetation2D.addTo(map);
 vegetationSwitch.setAttribute("aria-checked", String(vegetationSwitch.checked));
 function syncVegetation3D() {
   const visible = vegetationSwitch.checked;
   vegetationSwitch.setAttribute("aria-checked", String(visible));
   if (vegetationCredit3D) vegetationCredit3D.hidden = !(visible && terrainSwitch.checked);
+  if (vegetationSource) vegetationSource.hidden = !visible;
   if (terrainMap && terrain3DReady && terrainMap.getLayer("terrain-vegetation")) {
     terrainMap.setLayoutProperty("terrain-vegetation", "visibility", visible ? "visible" : "none");
     terrainMap.setPaintProperty("terrain-vegetation", "raster-opacity", vegetationLayerOpacity());
@@ -4261,6 +4288,104 @@ async function overlayCreateVectorLayer(item,data){
   }
   return layer;
 }
+// v85: GeoJSONのCRSを検査し、平面直角座標系等の元座標をWGS84へ変換する。
+// 表示用データのみ変換し、元ファイルのBlob・属性・IndexedDB原本は変更しない。
+function overlayGeojsonEPSG(data){
+  const v=data?.crs;
+  const names=[v?.properties?.name,v?.name,v?.properties?.code,data?.srsName,data?.epsg];
+  for(const candidate of names){
+    if(candidate===null||candidate===undefined)continue;
+    const value=String(candidate).trim();
+    const match=/(?:EPSG\s*[:/]+\s*|EPSG\D*?)(\d{4,5})(?!\d)/i.exec(value)
+      || /^(\d{4,5})$/.exec(value);
+    if(match)return Number(match[1]);
+  }
+  return null;
+}
+function overlayGeojsonSamples(data,limit=192){
+  const samples=[];
+  function scanCoordinates(coords){
+    if(samples.length>=limit || !Array.isArray(coords))return;
+    if(coords.length>=2&&typeof coords[0]==="number"&&typeof coords[1]==="number"){
+      samples.push([coords[0],coords[1]]);return;
+    }
+    for(const child of coords){if(samples.length>=limit)break;scanCoordinates(child);}
+  }
+  function scanGeometry(g){
+    if(!g||samples.length>=limit)return;
+    if(g.type==="GeometryCollection")for(const sub of g.geometries||[])scanGeometry(sub);
+    else scanCoordinates(g.coordinates);
+  }
+  function scanFeature(f){if(f?.type==="Feature")scanGeometry(f.geometry);else scanGeometry(f);}
+  if(data?.type==="FeatureCollection"){
+    for(const feature of data.features||[]){if(samples.length>=limit)break;scanFeature(feature);}
+  }else scanFeature(data);
+  return samples;
+}
+function overlayGeojsonReproject(data,project){
+  const convertGeometry=g=>{
+    if(!g)return g;
+    const result=shapeReprojectGeometry(g,project);
+    // 元投影座標を示すbboxは経緯度のbboxとして扱えないため除外する。
+    if(result && typeof result==="object")delete result.bbox;
+    return result;
+  };
+  const convertFeature=f=>{
+    if(!f||f.type!=="Feature")return f;
+    const out={...f,geometry:convertGeometry(f.geometry)};
+    delete out.bbox;return out;
+  };
+  let result;
+  if(data.type==="FeatureCollection")result={...data,features:data.features.map(convertFeature)};
+  else if(data.type==="Feature")result=convertFeature(data);
+  else result=convertGeometry(data);
+  delete result.crs;delete result.bbox;
+  return result;
+}
+async function overlayGeojsonWGS84(data,item){
+  const samples=overlayGeojsonSamples(data);
+  if(!samples.length)throw new Error("GeoJSONに座標付き地物がありません。");
+  const everyDegree=samples.every(p=>Number.isFinite(p[0])&&Number.isFinite(p[1])&&Math.abs(p[0])<=180&&Math.abs(p[1])<=90);
+  const requested=item.geojsonCrsMode||"auto";
+  const declared=overlayGeojsonEPSG(data);
+  let epsg=declared,axes="auto";
+  if(requested==="wgs84")epsg=4326;
+  else if(requested.startsWith("6675-")){
+    epsg=6675;
+    axes=requested==="6675-en"?"east-north":requested==="6675-ne"?"north-east":"auto";
+  }else if(requested==="auto"){
+    if(epsg===null){
+      if(!everyDegree)throw new Error("GeoJSONの座標値が経緯度の範囲外です。元の座標系がEPSG:6675の場合は『GeoJSONの座標系』をEPSG:6675に変更し、再読み込みしてください。座標系不明のまま地図を移動しません。");
+      epsg=4326;
+    }
+  }
+  if([4326,6668,4612].includes(epsg)){
+    if(!everyDegree)throw new Error("GeoJSONは経度・緯度の座標系ですが、座標値が緯度経度の範囲外です。元座標系を確認してください。");
+    item.geojsonDetectedEpsg=epsg;
+    item.geojsonDetectedAxes="経度・緯度";
+    return data;
+  }
+  if(!Number.isInteger(epsg)||(!((epsg>=6669&&epsg<=6687)||(epsg>=2443&&epsg<=2461)||[3857,900913].includes(epsg))))
+    throw new Error("GeoJSONの座標系EPSG:"+epsg+"は自動変換に未対応です。QGISでEPSG:4326に変換するか、GeoJSONの座標系を確認してください。");
+  const projection=await shapeProjectToWGS84("EPSG:"+epsg,"GeoJSON");
+  const xs=samples.map(p=>p[0]), ys=samples.map(p=>p[1]);
+  const bounds=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
+  const selection=shapeAxisSelection(projection.project,bounds,epsg,axes,"");
+  const project=selection.selected.project;
+  const center=selection.selected.point;
+  if(!Number.isFinite(center[0])||!Number.isFinite(center[1])||Math.abs(center[0])>180||Math.abs(center[1])>90)
+    throw new Error("GeoJSONの投影座標を経度・緯度に変換できません。元座標系とXYの順序を確認してください。");
+  // 少なくともサンプル座標は全点確認。変換後の緯度経度で全球表示になるのを防ぐ。
+  for(const p of samples){
+    const point=project(p);
+    if(!Number.isFinite(point?.[0])||!Number.isFinite(point?.[1])||Math.abs(point[0])>180||Math.abs(point[1])>90)
+      throw new Error("GeoJSONの一部の座標を変換できません。EPSG番号と座標順を確認してください。");
+  }
+  item.geojsonDetectedEpsg=epsg;
+  item.geojsonDetectedAxes=selection.selected.mode==="north-east"?"北・東（X/Y）":"東・北（E/N）";
+  return overlayGeojsonReproject(data,project);
+}
+
 async function createExternalLeafletLayer(item) {
   const opacity=Math.max(0,Math.min(1,Number(item.opacity??0.75)));
   if(item.kind==="geotiff"){
@@ -4304,7 +4429,8 @@ async function createExternalLeafletLayer(item) {
     try {data=JSON.parse(text);} catch {throw new Error("JSONファイルを解析できませんでした。");}
     if (!["Feature","FeatureCollection","GeometryCollection","Point","MultiPoint","LineString","MultiLineString","Polygon","MultiPolygon"].includes(data?.type))
       throw new Error("GeoJSON形式ではありません。GeoJSONのジオメトリまたはFeatureCollectionを指定してください。");
-    const layer=await overlayCreateVectorLayer(item,data);
+    const normalized=await overlayGeojsonWGS84(data,item);
+    const layer=await overlayCreateVectorLayer(item,normalized);
     if (!layer.__overlayPointIndex&&layer.getLayers().length===0) throw new Error("表示できるGeoJSON地物がありません。");
     return layer;
   }
@@ -4497,6 +4623,12 @@ function showOverlayList() {
       const crs=document.createElement("div");crs.className="overlay-shp-crs";
       crs.textContent=item.shpEpsg+"・"+(item.shpAxis==="raw-lonlat"?"元座標を経緯度として使用":item.shpAxis==="north-east"?"北・東（X/Y）":"東・北（E/N）");
       crs.title="座標順を変更する場合は、再インポートしてください。";
+      settingsBody.append(crs);
+    }
+    if((item.kind==="geojson"||item.kind==="geojson-url")&&item.geojsonDetectedEpsg){
+      const crs=document.createElement("div");crs.className="overlay-shp-crs";
+      crs.textContent="GeoJSON：EPSG:"+item.geojsonDetectedEpsg+" ／ "+item.geojsonDetectedAxes+" → WGS84";
+      crs.title="座標系・順序を変更するには、読込欄で指定して再インポートしてください。";
       settingsBody.append(crs);
     }
     if(overlayTiffSettingsSupported(item)){
@@ -4746,7 +4878,8 @@ async function addOverlayFiles(files) {
         continue;
       }
     }
-    const item={id:overlayId(),name:file.name,kind,blob:file,visible:true,opacity:0.75,createdAt:Date.now()};
+    const item={id:overlayId(),name:file.name,kind,blob:file,visible:true,opacity:0.75,createdAt:Date.now(),
+      geojsonCrsMode:kind==="geojson"?(document.getElementById("overlayGeojsonCrs")?.value||"auto"):undefined};
     try {await addExternalOverlay(item);}catch(e){overlayStatus(file.name+"："+e.message,true);console.error(e);}
   }
 }
@@ -4784,6 +4917,7 @@ document.getElementById("overlayAddUrl").addEventListener("click",async()=>{
   const names={xyz:"XYZタイル",wms:"WMS", "geojson-url":"GeoJSON","geotiff-url":"GeoTIFF"};
   const item={id:overlayId(),kind,url,visible:true,opacity:0.75,
     name:overlayNameInput.value.trim()||names[kind],layers:kind==="wms"?overlayWmsLayersInput.value.trim():"",
+    geojsonCrsMode:kind==="geojson-url"?(document.getElementById("overlayGeojsonCrs")?.value||"auto"):undefined,
     createdAt:Date.now()};
   try {await addExternalOverlay(item);overlayUrlInput.value="";overlayNameInput.value="";}
   catch(e){overlayStatus(e.message+(kind==="geojson-url"||kind==="geotiff-url"?"（URLの公開設定・CORSを確認してください）":""),true);console.error(e);}
@@ -6121,7 +6255,8 @@ async function processNewOverlayFiles(arr) {
     });
     else await run(file.name,async()=>{
       const kind=normalizeOverlayFileKind(file);
-      await addExternalOverlay({id:overlayId(),name:file.name,kind,blob:file,visible:true,opacity:0.75,createdAt:Date.now()});
+      await addExternalOverlay({id:overlayId(),name:file.name,kind,blob:file,visible:true,opacity:0.75,createdAt:Date.now(),
+        geojsonCrsMode:kind==="geojson"?(document.getElementById("overlayGeojsonCrs")?.value||"auto"):undefined});
     });
   }
   if(errors.length)overlayStatus("読み込みエラー（"+errors.length+"件）："+errors.join(" ／ "),true);
@@ -7192,6 +7327,16 @@ function viewshedSelectResult(entry,{show=false,refresh=true}={}){
     viewshedPickedText.textContent=`視点：北緯${viewshedPoint.lat.toFixed(6)}°／東経${viewshedPoint.lng.toFixed(6)}°`;
     viewshedPickButton.textContent="視点を選び直す";
     viewshedRunButton.disabled=viewshedRunning;
+  }else{
+    // v84: 最後の保存済み視野図を削除したら、選択視点と2D/3Dの赤い四角も消す。
+    viewshedPoint=null;
+    viewshedPicking=false;
+    map.getContainer().classList.remove("choosing-point");
+    terrainContainer.classList.remove("choosing-point");
+    viewshedPickedText.textContent="視点が未指定です。";
+    viewshedPickButton.textContent="地図上で視点を指定";
+    viewshedRunButton.disabled=true;
+    viewshedSyncSquareMarkers();
   }
   if(show&&entry){viewshedShownIds.add(entry.id);viewshedVisibleControl.checked=true;viewshedPersistShown();}
   if(refresh){viewshedRender2D();viewshedRender3D();}
@@ -7307,9 +7452,16 @@ function viewshedRenderList(){
       viewshedSaved=viewshedSaved.filter(e=>e.id!==entry.id);
       viewshedShownIds.delete(entry.id);
       viewshedPersistShown();
-      // 描画用参照を解放してからURLを破棄する。
-      if(viewshedActive?.id===entry.id)viewshedSelectResult(viewshedSaved[0]||null);
-      else{viewshedRender2D();viewshedRender3D();viewshedRenderList();}
+      // v84: 削除した視野図が最後の1件、または現在選択中なら、視点を切り替える／消去する。
+      const wasActive=viewshedActive?.id===entry.id;
+      const wasPicked=viewshedPoint&&entry.point&&
+        Math.abs(viewshedPoint.lat-entry.point.lat)<1e-9&&
+        Math.abs(viewshedPoint.lng-entry.point.lng)<1e-9;
+      // 既に開いている360°ビューが削除対象を参照し続けないようにする。
+      if(panoramaDialog.open&&panoramaTargetEntry?.id===entry.id)panoramaDialog.close();
+      if(!viewshedSaved.length||wasActive||wasPicked){
+        viewshedSelectResult(viewshedSaved[0]||null);
+      }else{viewshedRender2D();viewshedRender3D();viewshedRenderList();}
       viewshedReleaseURL(entry.id);
     });
     line.append(title,toggleLabel,preview,move,erase);
@@ -8121,7 +8273,7 @@ panoramaUpdateButton();
       else setStatus('鉄塔を読み込み中…（'+done+'/'+regs.length+'地域）');
       return;
     }
-    setStatus('鉄塔 '+(currentShown===null?'表示中':currentShown.toLocaleString('ja-JP')+'基を表示')+'（OSMの登録位置：精度不明）');
+    setStatus('鉄塔 '+(currentShown===null?'表示中':currentShown.toLocaleString('ja-JP')+'基を表示')+'（OSMの登録位置）');
   }
   function emptyFC(){return {type:'FeatureCollection',features:[]};}
   function dataFor3D(){
