@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>野生生物観察 WebGIS v93｜複数視野図の重ね合わせ・視点移動</title>
+  <title>野生生物観察 WebGIS v104｜複数視野図の重ね合わせ・視点移動</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <style>
@@ -750,14 +750,203 @@
 #recordPanel .record-location-info .coordinate-values {display:flex; flex-direction:column; min-width:0;}
 #recordPanel .record-location-info .coordinate-values span {display:block; white-space:nowrap;}
 #recordPanel .record-location-info #targetMesh {margin-top:3px;}
+/* v94: 魚類・底生動物の入力欄はスマホでも必ず３列×２行。 */
+#recordPanel .aquatic-details { margin:5px 0 6px; }
+#recordPanel .aquatic-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px 7px; }
+#recordPanel .aquatic-cell { min-width:0; }
+#recordPanel .aquatic-cell label { display:block; margin:2px 0 2px; font-size:11px; line-height:1.25; white-space:nowrap; }
+#recordPanel .aquatic-cell input,
+#recordPanel .aquatic-cell select { display:block; width:100%; min-width:0; height:34px; padding:5px 6px; font-size:12px; }
+#recordPanel .aquatic-cell select { padding-right:1px; }
+@media (max-width:390px) {
+  #recordPanel .aquatic-grid { gap:5px 4px; }
+  #recordPanel .aquatic-cell label { font-size:10px; }
+  #recordPanel .aquatic-cell input, #recordPanel .aquatic-cell select { font-size:11px; padding:4px 3px; }
+}
 /* 見出しと種名・個体数の入力欄を直接続ける。 */
 #recordPanel .species-count-cell > label { min-height:0; margin:5px 0 0; line-height:1.3; }
 #recordPanel .species-count-cell .species-field { margin:0; }
+/* v95: 水域環境の５つの数値欄＋河床材料は４桁程度の入力幅に縮める。
+   ３列×２行の配置・入力可能な数値の上限・既存データ処理は変えない。 */
+#recordPanel .aquatic-cell input,
+#recordPanel .aquatic-cell select { width:min(100%,72px); }
+/* 種名の入力面積を確保し、個体数だけを短い欄にする。 */
+#recordPanel .species-count-row { grid-template-columns:minmax(0,1fr) 92px; }
+#recordPanel #individuals { width:min(100%,72px); }
+/* v96: 種名の入力欄だけを短くする。種名候補リストも入力欄と同じ幅に追従する。 */
+#recordPanel .species-count-cell .species-field { max-width:215px; }
+@media (max-width:370px) {
+  #recordPanel .species-count-row { grid-template-columns:minmax(0,1fr) 92px; }
+}
 @media (max-width:720px) {
   #recordPanel { width:min(448px,calc(100vw - 20px)); }
   #recordPanel .entry-two-columns { gap:5px 7px; }
   #recordPanel .entry-cell > .site-name-label { font-size:10.5px; }
 }
+
+/* v97: 地図の表示領域を確保するため、観察記録ウィンドウ全体を縮小。
+   先頭の2列は3:3、種名と個体数は4.5:1.5の比率を維持する。 */
+#recordPanel { width:min(286px, calc(100vw - 48px)); z-index:1350; }
+#recordPanel .entry-two-columns { grid-template-columns:minmax(0,3fr) minmax(0,3fr); gap:5px 6px; }
+#recordPanel .species-count-row { grid-template-columns:minmax(0,4.5fr) minmax(0,1.5fr); gap:7px; }
+#recordPanel .species-count-cell:last-child > label { font-size:10px; letter-spacing:-.035em; white-space:nowrap; }
+#recordPanel .compact-date-grid { grid-template-columns:minmax(37px,1.85fr) repeat(4,minmax(18px,1fr)); }
+@media (max-width:720px) {
+  #recordPanel { width:min(286px, calc(100vw - 48px)); }
+  #recordPanel .entry-two-columns { gap:5px 6px; }
+}
+
+    /* v98: 左下パネルだけを従来の約75%幅にする（閉：220→165px、展開：276→207px）。
+       説明文・機能・DOMはそのまま。スマホでは閉じた幅も従来32vw→24vwにする。 */
+    .bottom-left:not(.expanded):not(.viewshed-expanded) {
+      width:min(165px, 24vw);
+    }
+    .bottom-left.expanded,
+    .bottom-left.viewshed-expanded {
+      width:min(207px, calc(100vw - 20px));
+    }
+    /* 展開内容は狭い幅でも左右にはみ出さず、必要なら折り返す。 */
+    .bottom-left.expanded #dataManagement .export-choices {
+      flex-wrap:wrap;
+      gap:4px 7px;
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails .viewshed-grid {
+      grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails label[for="viewshedEyeHeight"] {
+      white-space:normal;
+    }
+    .bottom-left.viewshed-expanded #viewshedSavedList .viewshed-item {
+      flex-wrap:wrap;
+    }
+    @media (max-width:720px) {
+      .bottom-left:not(.expanded):not(.viewshed-expanded) .panel-inner { padding:6px; }
+      .bottom-left:not(.expanded):not(.viewshed-expanded) .route-switch-row {
+        flex-wrap:wrap;
+      }
+      .bottom-left:not(.expanded):not(.viewshed-expanded) .route-interval-row {
+        flex-wrap:wrap; white-space:normal; gap:2px 3px;
+      }
+      .bottom-left:not(.expanded):not(.viewshed-expanded) .route-interval-row label {
+        flex:none; width:100%; white-space:normal;
+      }
+    }
+    /* v99: 左下の説明文は維持し、見出しの改行位置だけ整える。 */
+    #viewshedDetails > summary {
+      color:var(--dark); font-size:12px; font-weight:700;
+      white-space:nowrap; letter-spacing:normal;
+    }
+    /* v98の207pxパネル内で視点高ラベルを半角記号のまま1行表示する。 */
+    .bottom-left.viewshed-expanded #viewshedDetails .viewshed-grid {
+      grid-template-columns:minmax(105px,1.2fr) minmax(0,.8fr);
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails label[for="viewshedEyeHeight"] {
+      white-space:nowrap; font-size:10px; letter-spacing:normal;
+    }
+    #dataManagement label[for="geojsonFile"] {
+      display:block; text-align:center; line-height:1.45;
+    }
+    /* v100: 視点高の入力幅を見出しの文字幅に揃え、計算間隔を広げる。
+       展開した左下パネルの全体幅207pxは維持。 */
+    .bottom-left.viewshed-expanded #viewshedDetails .viewshed-grid {
+      grid-template-columns:100px minmax(0, 1fr);
+      column-gap:4px;
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails label[for="viewshedEyeHeight"] {
+      font-size:9px;
+      white-space:nowrap;
+      letter-spacing:-.02em;
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails #viewshedEyeHeight {
+      width:100%;
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails #viewshedResolution {
+      width:100%;
+      min-width:0;
+      padding:5px 1px;
+      font-size:10px;
+    }
+    /* v101: 視点高の数値入力で上下スピンボタンだけを非表示。数値入力機能は維持。 */
+    #viewshedEyeHeight {
+      appearance:textfield;
+      -moz-appearance:textfield;
+    }
+    #viewshedEyeHeight::-webkit-inner-spin-button,
+    #viewshedEyeHeight::-webkit-outer-spin-button {
+      -webkit-appearance:none;
+      appearance:none;
+      margin:0;
+    }
+    /* v102: 視点高欄は見出しの表示文字幅＋全角1文字分だけ確保し、
+       その列幅に数値入力欄を一致させる。残り幅は計算間隔に割り当てる。 */
+    .bottom-left.viewshed-expanded #viewshedDetails .viewshed-grid {
+      grid-template-columns:max-content minmax(0, 1fr);
+      column-gap:4px;
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails label[for="viewshedEyeHeight"] {
+      width:max-content;
+      padding-right:1em;
+      box-sizing:content-box;
+    }
+    .bottom-left.viewshed-expanded #viewshedDetails #viewshedEyeHeight {
+      display:block;
+      /* 固有幅に引っ張られず、見出し＋全角1文字の列幅だけを使う。 */
+      width:0;
+      min-width:100%;
+      max-width:100%;
+    }
+    /* スマホ通常時も1行見出しが収まる最小幅を確保。展開時は207pxのまま。 */
+    @media (max-width:720px) {
+      .bottom-left:not(.expanded):not(.viewshed-expanded) {
+        width:min(155px, calc(100vw - 20px));
+      }
+    }
+
+    /* v103: 記録間隔の単位を見出しにまとめ、数値入力の上下スイッチを非表示。 */
+    #routeInterval {
+      appearance:textfield;
+      -moz-appearance:textfield;
+    }
+    #routeInterval::-webkit-inner-spin-button,
+    #routeInterval::-webkit-outer-spin-button {
+      -webkit-appearance:none;
+      appearance:none;
+      margin:0;
+    }
+    /* 左下を縮めたスマホ画面でも「記録間隔 (秒)」と入力欄を1行に収める。 */
+    @media (max-width:720px) {
+      .bottom-left:not(.expanded):not(.viewshed-expanded) .route-interval-row {
+        flex-wrap:nowrap; white-space:nowrap; gap:3px;
+      }
+      .bottom-left:not(.expanded):not(.viewshed-expanded) .route-interval-row label {
+        flex:1 1 auto; width:auto; min-width:0; white-space:nowrap;
+      }
+    }
+
+    /* v104: 右下の入力開始ボタンは、データ管理のダウンロードボタンと
+       同じ12pxの文字サイズにし、ボタン・操作欄をコンパクトにする。 */
+    .bottom-right {
+      width:min(180px, calc(100vw - 24px));
+    }
+    #getLocation, #recordAtMap {
+      width:max-content;
+      max-width:100%;
+      padding:8px 10px;
+      margin:5px auto;
+      font-size:12px;
+      line-height:1.45;
+      white-space:nowrap;
+    }
+    @media (max-width:720px) {
+      .bottom-right {
+        width:min(180px, calc(100vw - 20px));
+      }
+      #getLocation, #recordAtMap {
+        padding:8px 10px;
+        font-size:12px;
+        white-space:nowrap;
+      }
+    }
   </style>
 </head>
 <body>
@@ -927,18 +1116,17 @@
             </label>
           </div>
           <div class="route-interval-row">
-            <label for="routeInterval">記録間隔</label>
-            <input id="routeInterval" type="number" inputmode="numeric" min="2" max="3600" step="1" value="10" aria-label="GPSを記録する間隔（秒）">
-            <span>秒</span>
+            <label for="routeInterval">記録間隔 (秒)</label>
+            <input id="routeInterval" type="number" inputmode="numeric" min="2" max="3600" step="1" value="10" aria-label="GPSを記録する間隔 (秒)">
           </div>
           <p id="routeStatus" role="status" aria-live="polite" hidden></p>
         </div>
 
         <details id="viewshedDetails" aria-label="地形の地上視野図">
-          <summary>地上視野図（半径2km）</summary>
+          <summary>地上視野図 (半径2km)</summary>
           <div class="viewshed-body">
             <div class="viewshed-grid">
-              <div><label for="viewshedEyeHeight">視点高（地表からm）</label><input id="viewshedEyeHeight" type="number" inputmode="decimal" min="0" max="500" step="0.5" value="1.5"></div>
+              <div><label for="viewshedEyeHeight">視点高 (地表からm)</label><input id="viewshedEyeHeight" type="number" inputmode="decimal" min="0" max="500" step="0.5" value="1.5"></div>
               <div><label for="viewshedResolution">計算間隔</label><select id="viewshedResolution"><option value="5">5m（標準）</option><option value="2">2m（精密・時間がかかります）</option></select></div>
             </div>
             <div class="small" style="margin:4px 0;">DEM1A優先、欠損時はDEM5・10で補完。地表面のみ判定（樹木・建物の遮蔽は含まず）。</div>
@@ -957,7 +1145,7 @@
       <details id="dataManagement" style="margin-top:10px;">
         <summary>データ管理</summary>
         <div class="details-body">
-          <label for="geojsonFile">このアプリで作成したGeoJSONの読み込み</label>
+          <label for="geojsonFile">このアプリで作成したGeoJSON<br>の読み込み</label>
           <div id="geojsonDropZone" role="button" tabindex="0"
                aria-label="GeoJSONファイルを選択、またはドラッグ＆ドロップして読み込み"
                aria-disabled="true">クリック または ドラッグ＆ドロップ</div>
@@ -1069,6 +1257,27 @@
           </div>
         </div>
         <p id="groupHelp" class="small">分類群を選択すると、その分類群の記録項目が表示されます。</p>
+
+        <!-- v94: 魚類・底生動物の共通水域環境（３項目×２行）。他の分類群では非表示・入力不要。 -->
+        <div id="aquaticDetails" class="aquatic-details" hidden>
+          <div class="aquatic-grid">
+            <div class="aquatic-cell"><label for="waterDepth">水深(cm) <span class="required">*</span></label>
+              <input id="waterDepth" type="text" inputmode="decimal" autocomplete="off" maxlength="20" placeholder="30" aria-label="水深(cm)" disabled></div>
+            <div class="aquatic-cell"><label for="riverWidth">川幅(m) <span class="required">*</span></label>
+              <input id="riverWidth" type="text" inputmode="decimal" autocomplete="off" maxlength="20" placeholder="2.5" aria-label="川幅(m)" disabled></div>
+            <div class="aquatic-cell"><label for="waterTemp">水温(℃) <span class="required">*</span></label>
+              <input id="waterTemp" type="text" inputmode="decimal" autocomplete="off" maxlength="20" placeholder="15.2" aria-label="水温(℃)" disabled></div>
+            <div class="aquatic-cell"><label for="waterPh">pH <span class="required">*</span></label>
+              <input id="waterPh" type="text" inputmode="decimal" autocomplete="off" maxlength="20" placeholder="7.0" aria-label="pH" disabled></div>
+            <div class="aquatic-cell"><label for="flowSpeed">流速(s/m) <span class="required">*</span></label>
+              <input id="flowSpeed" type="text" inputmode="decimal" autocomplete="off" maxlength="20" placeholder="0.4" aria-label="流速(s/m)" disabled></div>
+            <div class="aquatic-cell"><label for="riverbedMaterial">河床材料 <span class="required">*</span></label>
+              <select id="riverbedMaterial" aria-label="河床材料" disabled>
+                <option value="">選択</option><option value="岩">岩</option><option value="礫">礫</option>
+                <option value="砂">砂</option><option value="泥">泥</option><option value="無">無</option>
+              </select></div>
+          </div>
+        </div>
 
         <div class="species-count-row">
           <div class="species-count-cell">
@@ -2443,6 +2652,77 @@ const birdChoiceGroups = [
 function isBirdSurvey() {
   return surveyGroupSelect.value === "鳥類";
 }
+// v94: 魚類と底生動物は同じ６項目を必須とする。
+const aquaticFields = [
+  {id:"waterDepth", property:"水深(cm)", label:"水深(cm)", nonnegative:true},
+  {id:"riverWidth", property:"川幅(m)", label:"川幅(m)", nonnegative:true},
+  {id:"waterTemp", property:"水温(℃)", label:"水温(℃)"},
+  {id:"waterPh", property:"pH", label:"pH"},
+  {id:"flowSpeed", property:"流速(s/m)", label:"流速(s/m)", nonnegative:true}
+];
+const riverbedInput = document.getElementById("riverbedMaterial");
+const aquaticDetails = document.getElementById("aquaticDetails");
+function isAquaticSurvey(group=surveyGroupSelect.value) {
+  return group === "魚類" || group === "底生動物";
+}
+function normalizeAquaticNumber(value) {
+  return String(value ?? "").replace(/[０-９＋－．]/g, c =>
+    ({"＋":"+","－":"-","．":"."}[c] ?? String.fromCharCode(c.charCodeAt(0)-0xFEE0)));
+}
+function updateAquaticVisibility() {
+  const active = isAquaticSurvey();
+  aquaticDetails.hidden = !active;
+  for (const field of aquaticFields) {
+    const input = document.getElementById(field.id);
+    input.disabled = !active;
+    input.required = active;
+  }
+  riverbedInput.disabled = !active;
+  riverbedInput.required = active;
+}
+for (const field of aquaticFields) {
+  const input = document.getElementById(field.id);
+  input.addEventListener("input", event => {
+    if (!event.isComposing) input.value = normalizeAquaticNumber(input.value);
+  });
+  input.addEventListener("compositionend", () => { input.value = normalizeAquaticNumber(input.value); });
+  input.addEventListener("blur", () => { input.value = normalizeAquaticNumber(input.value).trim(); });
+}
+function readAquaticProperties() {
+  if (!isAquaticSurvey()) return {};
+  const values = {};
+  for (const field of aquaticFields) {
+    const input = document.getElementById(field.id);
+    const text = normalizeAquaticNumber(input.value).trim();
+    input.value = text;
+    // 半角数値（整数／小数）だけを保存。指数表記・単位などは受け付けない。
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) {
+      showFormError(field.label+"は半角数字で入力してください。", input);
+      return null;
+    }
+    const number = Number(text);
+    if (!Number.isFinite(number) || (field.nonnegative && number < 0)) {
+      showFormError(field.label+"には有効な数値"+(field.nonnegative?"（0以上）":"")+"を入力してください。", input);
+      return null;
+    }
+    values[field.property] = number;
+  }
+  const material = riverbedInput.value;
+  if (!["岩","礫","砂","泥","無"].includes(material)) {
+    showFormError("河床材料を選択してください。", riverbedInput);
+    return null;
+  }
+  values["河床材料"] = material;
+  return values;
+}
+function restoreAquaticProperties(properties={}) {
+  for (const field of aquaticFields) {
+    const value = properties[field.property];
+    document.getElementById(field.id).value = value == null ? "" : normalizeAquaticNumber(value);
+  }
+  const material = String(properties["河床材料"] ?? "");
+  riverbedInput.value = ["岩","礫","砂","泥","無"].includes(material) ? material : "";
+}
 // 「その他」の内容は各項目で個別に入力し、⑧備考とは連動させない。
 const birdOtherFields = [
   {name:"environment", inputId:"environmentOther", rowId:"environmentOtherRow", property:"環境（その他詳細）", label:"環境"},
@@ -2513,6 +2793,7 @@ function updateClassificationUI() {
   const group = surveyGroupSelect.value;
   const isBird = isBirdSurvey();
   birdDetails.hidden = !isBird;
+  updateAquaticVisibility();
   document.getElementById("notesCell").hidden = !isBird;
   document.getElementById("recordFinalGrid").classList.toggle("bird-form-active",isBird);
   birdSpeciesTools.hidden = !group;
@@ -2523,7 +2804,9 @@ function updateClassificationUI() {
     ? "分類群を選択すると、その分類群の記録項目が表示されます。"
     : isBird
       ? "鳥類：詳細な記録項目を入力します。種名はH列で候補を検索できます。"
-      : "この分類群では、種名・個体数・観察日時・調査者名を記録します。種名はAA列で候補を検索できます。";
+      : isAquaticSurvey()
+        ? "魚類・底生動物：水域環境６項目と種名・個体数を記録します。種名はAA列で候補を検索できます。"
+        : "この分類群では、種名・個体数・観察日時・調査者名を記録します。種名はAA列で候補を検索できます。";
   if (source) {
     document.getElementById("speciesSearchHelp").innerHTML =
       "ひらがな・カタカナの<b>先頭2文字</b>から候補を表示し、3文字目以降で絞り込みます。"+
@@ -2726,6 +3009,7 @@ function openEditForm(id) {
   updateClassificationUI();
   document.getElementById("species").value = props["種名"] || "";
   document.getElementById("individuals").value = props["個体数"] ?? 1;
+  restoreAquaticProperties(props);
   restoreChecks("age", props["年齢"]);
   restoreLegacyBirdChoice("age", props["年齢"]);
   restoreChecks("sex", props["性別"]);
@@ -2769,6 +3053,8 @@ recordForm.addEventListener("submit", async event => {
   if (!investigator) {
     showFormError("調査者名を入力してください。", investigatorInput); return;
   }
+  const aquaticProperties = readAquaticProperties();
+  if (aquaticProperties === null) return;
   const speciesInput = document.getElementById("species");
   const species = isBirdSurvey()
     ? normalizeSpecies(speciesInput.value).trim()
@@ -2830,6 +3116,7 @@ recordForm.addEventListener("submit", async event => {
     "観察日時_ISO8601":dateInfo.date.toISOString(),
     "種名":species,
     "個体数":count,
+    ...aquaticProperties,
     ...(isBirdSurvey() ? {
       "年齢":age,
       "性別":sex,
@@ -2846,6 +3133,10 @@ recordForm.addEventListener("submit", async event => {
     "位置精度_m":pendingPoint.accuracy,
     "二次メッシュコード":secondMeshCode(pendingPoint.coordinates[1],pendingPoint.coordinates[0])
   };
+  // 魚類・底生動物から別分類群へ変更した場合、旧水域環境項目は混在させない。
+  if (!isAquaticSurvey()) {
+    [...aquaticFields.map(field => field.property),"河床材料"].forEach(name => delete properties[name]);
+  }
   // 他の分類群には鳥類専用の属性を残さない（編集で分類群を変更しても安全）。
   if (!isBirdSurvey()) {
     ["年齢", "性別", "環境", "環境（その他詳細）", "繁殖行動", "繁殖行動（その他詳細）", "確認方法", "確認方法（その他詳細）", "備考", "写真番号"].forEach(name => delete properties[name]);
@@ -3245,7 +3536,7 @@ function downloadBlob(blob, filename) {
 
 function buildSpreadsheetData() {
   const primaryHeaders = [
-    "現場名", "調査分類群", "地点名", "調査者名", "観察日時", "種名", "個体数", "年齢", "性別", "環境", "環境（その他詳細）", "確認方法", "確認方法（その他詳細）", "繁殖行動", "繁殖行動（その他詳細）", "備考", "写真番号",
+    "現場名", "調査分類群", "地点名", "調査者名", "観察日時", "水深(cm)", "川幅(m)", "水温(℃)", "pH", "流速(s/m)", "河床材料", "種名", "個体数", "年齢", "性別", "環境", "環境（その他詳細）", "確認方法", "確認方法（その他詳細）", "繁殖行動", "繁殖行動（その他詳細）", "備考", "写真番号",
     "登録方法", "位置精度_m", "写真ファイル名", "写真のアドレス", "写真保存先フォルダ", "写真保存方法", "緯度", "経度", "二次メッシュコード",
     "地物種別", "登録ID", "登録日時", "更新日時", "GeoJSON座標"
   ];
@@ -3306,6 +3597,7 @@ function buildSpreadsheetWorkbook() {
   const worksheet = XLSX.utils.aoa_to_sheet([headers,...rows]);
   worksheet["!cols"] = headers.map(name => ({
     wch:({"現場名":26,"調査分類群":26,"地点名":26,"調査者名":20,"観察日時":19,"種名":22,"年齢":16,"性別":16,"環境":26,"環境（その他詳細）":30,"繁殖行動":30,"繁殖行動（その他詳細）":30,"確認方法":24,"確認方法（その他詳細）":30,"備考":42,"写真番号":22,"登録方法":25,
+          "水深(cm)":15,"川幅(m)":15,"水温(℃)":15,"pH":12,"流速(s/m)":15,"河床材料":15,
           "登録ID":39,"登録日時":25,"更新日時":25,"GeoJSON座標":35,
           "二次メッシュコード":20,"写真ファイル名":55,"写真のアドレス":60,"写真保存先フォルダ":24,"写真保存方法":22,"緯度":16,"経度":16}[name] || 17)
   }));
