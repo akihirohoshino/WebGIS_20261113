@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>野生生物観察 WebGIS v104｜複数視野図の重ね合わせ・視点移動</title>
+  <title>野生生物観察 WebGIS v106｜複数視野図の重ね合わせ・視点移動</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <style>
@@ -946,6 +946,73 @@
         font-size:12px;
         white-space:nowrap;
       }
+    }
+
+    /* v105: 2Dはズーム直下、3Dはズーム・北向きボタンの直下へ。両モードで地図コントロールと同幅。 */
+    #centerLocation,
+    #centerLocation:hover:not(:disabled) {
+      width:30px;
+      height:30px;
+      top:82px;
+      left:10px;
+      padding:0;
+      box-sizing:border-box;
+    }
+    #app.terrain-on #centerLocation,
+    #app.terrain-on #centerLocation:hover:not(:disabled) {
+      top:112px;
+      width:29px;
+      height:29px;
+    }
+    /* v106: 2D/3Dナビゲーションの左上座標と各ボタンの外寸を統一する。
+       Leafletのタッチ環境用2px枠とMapLibre標準の29px幅による差を解消。 */
+    #map .leaflet-control-zoom,
+    #map3d .maplibregl-ctrl-top-left .maplibregl-ctrl-group {
+      box-sizing:border-box;
+      width:30px;
+      min-width:30px;
+      margin:10px 0 0 10px;
+      padding:0;
+      border:0 !important;
+      border-radius:4px;
+      background:#fff;
+      box-shadow:0 1px 5px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    #map .leaflet-control-zoom a,
+    #map .leaflet-touch .leaflet-control-zoom a,
+    #map3d .maplibregl-ctrl-top-left .maplibregl-ctrl-group button {
+      box-sizing:border-box;
+      width:30px !important;
+      min-width:30px;
+      height:30px !important;
+      min-height:30px;
+      margin:0;
+      padding:0;
+      border-radius:0;
+    }
+    #map .leaflet-control-zoom a {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      line-height:30px;
+    }
+    #map .leaflet-control-zoom a:not(:last-child) { border-bottom:1px solid #ddd; }
+    #map3d .maplibregl-ctrl-top-left .maplibregl-ctrl-group button + button {border-top:1px solid #ddd;}
+    /* 両地図ともズーム上端10px・左端10px、現在地は最終ボタン下12px。 */
+    #centerLocation,
+    #centerLocation:hover:not(:disabled) {
+      top:82px;
+      left:10px;
+      width:30px;
+      height:30px;
+    }
+    #app.terrain-on #centerLocation,
+    #app.terrain-on #centerLocation:hover:not(:disabled) {
+      top:112px;
+      left:10px;
+      width:30px;
+      height:30px;
     }
   </style>
 </head>
